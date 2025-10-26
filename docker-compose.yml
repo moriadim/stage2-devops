@@ -1,24 +1,45 @@
-version: '3.8'
-
 services:
   app_blue:
-    image: ${BLUE_IMAGE}
-    ports:
-      - "8081:80"
+    build: ./app_blue
+    container_name: app_blue
+    environment:
+      - APP_POOL=blue
+      - RELEASE_ID=1.0.0
+      - PORT=8080
+    expose:
+      - "8080"
+    networks:
+      - app_network
 
   app_green:
-    image: ${GREEN_IMAGE}
-    ports:
-      - "8082:80"
+    build: ./app_green
+    container_name: app_green
+    environment:
+      - APP_POOL=green
+      - RELEASE_ID=2.0.0
+      - PORT=8080
+    expose:
+      - "8080"
+    networks:
+      - app_network
 
   nginx:
     image: nginx:alpine
+    container_name: nginx
     ports:
       - "8080:80"
     volumes:
-      - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template
-      - ./nginx/entrypoint.sh:/entrypoint.sh
+      - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./nginx/entrypoint.sh:/entrypoint.sh:ro
     entrypoint: ["sh", "/entrypoint.sh"]
+    environment:
+      - ACTIVE_POOL=app_blue
     depends_on:
       - app_blue
       - app_green
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
