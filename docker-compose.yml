@@ -1,25 +1,27 @@
+version: '3.8'
+
 services:
   app_blue:
-    build: ./app_blue
+    image: ${BLUE_IMAGE}
     container_name: app_blue
     environment:
       - APP_POOL=blue
-      - RELEASE_ID=1.0.0
+      - RELEASE_ID=${RELEASE_ID_BLUE}
       - PORT=8080
-    expose:
-      - "8080"
+    ports:
+      - "8081:8080"
     networks:
       - app_network
 
   app_green:
-    build: ./app_green
+    image: ${GREEN_IMAGE}
     container_name: app_green
     environment:
       - APP_POOL=green
-      - RELEASE_ID=2.0.0
+      - RELEASE_ID=${RELEASE_ID_GREEN}
       - PORT=8080
-    expose:
-      - "8080"
+    ports:
+      - "8082:8080"
     networks:
       - app_network
 
@@ -33,7 +35,7 @@ services:
       - ./nginx/entrypoint.sh:/entrypoint.sh:ro
     entrypoint: ["sh", "/entrypoint.sh"]
     environment:
-      - ACTIVE_POOL=app_blue
+      - ACTIVE_POOL=${ACTIVE_POOL}
     depends_on:
       - app_blue
       - app_green
