@@ -1,4 +1,5 @@
-user nginx;
+# nginx.conf.template
+user  nginx;
 worker_processes auto;
 error_log /var/log/nginx/error.log warn;
 pid /var/run/nginx.pid;
@@ -10,29 +11,32 @@ events {
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
-    
-    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                    '$status $body_bytes_sent "$http_referer" '
-                    '"$http_user_agent" "$http_x_forwarded_for"';
-    
-    access_log /var/log/nginx/access.log main;
-    
+
+    # Structured log format for Stage 3
+    log_format stage3 '$remote_addr - $remote_user [$time_local] "$request" '
+                      'status=$status body_bytes=$body_bytes_sent '
+                      'pool=$http_x_app_pool release=$http_x_release_id '
+                      'upstream_status=$upstream_status upstream_addr=$upstream_addr '
+                      'request_time=$request_time upstream_response_time=$upstream_response_time';
+
+    access_log /var/log/nginx/access.log stage3;
+
     sendfile on;
     tcp_nopush on;
     tcp_nodelay on;
     keepalive_timeout 65;
     types_hash_max_size 2048;
-    
-    # Upstream configuration based on active pool
+
+    # Upstream pool - placeholder replaced by entrypoint.sh
     upstream app_pool {
-        # Will be replaced by entrypoint.sh based on ACTIVE_POOL
         keepalive 16;
+        __UPSTREAM_SERVERS__
     }
-    
+
     server {
         listen 80;
         server_name localhost;
-        
+
         # Proxy settings
         proxy_http_version 1.1;
         proxy_set_header Connection "";
@@ -40,24 +44,28 @@ http {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
+        # Pass through headers from client to upstream so logs carry pool/release
+        proxy_set_header X-App-Pool $http_x_app_pool;
+        proxy_set_header X-Release-Id $http_x_release_id;
+
         # Don't buffer responses
         proxy_buffering off;
-        
+
         location / {
             proxy_pass http://app_pool;
-            
+
             # Fast timeouts for quick failover
             proxy_connect_timeout 1s;
             proxy_send_timeout 1s;
             proxy_read_timeout 1s;
             proxy_next_upstream_timeout 2s;
-            
+
             # Retry on failures (uses backup server)
             proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
             proxy_next_upstream_tries 2;
-            
-            # Forward headers from upstream
+
+            # Forward some headers from upstream
             proxy_pass_header X-App-Pool;
             proxy_pass_header X-Release-Id;
             proxy_pass_header Server;
@@ -65,4 +73,3 @@ http {
         }
     }
 }
-

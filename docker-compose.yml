@@ -48,6 +48,7 @@ services:
     volumes:
       - ./nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./entrypoint.sh:/docker-entrypoint.d/entrypoint.sh:ro
+      - ./logs/nginx:/var/log/nginx
     environment:
       - ACTIVE_POOL=${ACTIVE_POOL:-blue}
       - PORT=${PORT:-3000}
@@ -55,7 +56,20 @@ services:
       - app_network
     command: /bin/sh /docker-entrypoint.d/entrypoint.sh
 
+  alert_watcher:
+    build:
+      context: ./watcher
+      dockerfile: Dockerfile
+    container_name: alert_watcher
+    volumes:
+      - ./logs/nginx:/var/log/nginx
+    working_dir: /app
+    env_file: .env
+    depends_on:
+      - nginx
+    networks:
+      - app_network
+
 networks:
   app_network:
     driver: bridge
-
