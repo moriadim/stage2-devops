@@ -1,4 +1,4 @@
-# nginx.conf.template
+# nginx.conf
 user  nginx;
 worker_processes auto;
 error_log /var/log/nginx/error.log warn;
@@ -27,10 +27,11 @@ http {
     keepalive_timeout 65;
     types_hash_max_size 2048;
 
-    # Upstream pool - placeholder replaced by entrypoint.sh
+    # Upstream pool
     upstream app_pool {
         keepalive 16;
-        __UPSTREAM_SERVERS__
+        server app_blue:3000;
+        server app_green:3000;
     }
 
     server {
