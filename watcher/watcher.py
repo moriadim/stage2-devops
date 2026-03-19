@@ -70,6 +70,10 @@ def send_slack(text, attachments=None):
 # =============================
 # Alert Cooldown Management
 # =============================
+# WHY WE DO THIS: In a fast-paced outage, log files can instantly generate thousands 
+# of error lines. If we send a Slack message for every single line, we will quickly 
+# hit API rate limits and, more importantly, cause "Alert Fatigue" for the on-call engineer. 
+# A cooldown ensures they get one clear signal to investigate without being overwhelmed.
 def should_cooldown(alert_type):
     t = last_alert_time.get(alert_type)
     if t is None:
@@ -82,6 +86,10 @@ def mark_alert(alert_type):
 # =============================
 # Error Rate Monitoring
 # =============================
+# WHY WE DO THIS: We use a sliding window (deque) rather than measuring absolute 
+# error counts. Occasional transient errors (like sudden network latency) are normal 
+# in distributed systems. By measuring the *percentage* of errors over the last N requests,
+# we only wake up the engineer if the app is facing a sustained, legitimate outage.
 def check_error_rate():
     if len(window) == 0:
         return None
@@ -99,6 +107,10 @@ def check_error_rate():
 # =============================
 # Safe Tail-F Implementation
 # =============================
+# WHY WE DO THIS: Nginx and Docker might rotate or temporarily lock log files. 
+# A standard `open().read()` might crash if the file disappears or shrinks.
+# This generator function safely tracks the end of the file, gracefully waiting 
+# if the file is recreated, ensuring our watcher never crashes during log rotation.
 def tail_f(path):
     """Stream lines from a log file, handling non-seekable inputs gracefully."""
     while not os.path.exists(path):
@@ -148,6 +160,9 @@ def main(log_path):
         # =============================
         # Detect Pool Failover
         # =============================
+        # WHY WE DO THIS: A failover is a critical event. While Nginx handles it gracefully 
+        # (resulting in 0 downtime for the user), the engineering team still needs to know 
+        # *why* the primary pool failed. This alert acts as an early warning system.
         if pool and last_pool and pool != last_pool:
             if MAINTENANCE_MODE:
                 print(f"[watcher] maintenance mode ON - suppressing failover alert ({last_pool} -> {pool})")
